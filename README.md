@@ -1,7 +1,11 @@
 # DinamicMiniControlTest #
 
-Этот проект - не панацея, не замена coverage и ему подобным!
+### Вступление ###
+Этот проект - не панацея, не замена coverage и ему подобным! Создавался для собственного удобства и использования.
+Сразу после запуска тестов покажет в терминале какие методы не тестировались, позволяя не пользоваться постоянно
+командами "coverage report" и "coverage html".
 
+### Использование ###
 Базовый класс настроек для наследования основного класса.
 Так же помогает создавать объект тестирования с различными атрибутами "на лету".
 
@@ -9,6 +13,9 @@
 ```python
 class SomeBaseClass:
     type: str = None
+    attr1: str = None
+    attr2: str = None
+    attr3: bool = False
     
     def __init__(self, attr1: str = None, attr2: str = None, attr3: bool = False):
         self.attr1 = attr1
@@ -61,35 +68,43 @@ class BaseClassTest(BaseSettings):
     Базовый класс настроек для наследования основного класса.
     """
     obj: Type[SomeBaseClass] = None
+    # базовые атрибуты для вызова класса
     attr1: str = "some_attr1"
     attr2: str = "some_attr2"
     attr3: bool = True
+    # дополнительный атрибут, в вызове будет проигнорирован -> exclude_for_set = ["attr4"]
     attr4: bool = False
 
     class Meta:
         # attr4 будет проигнорирован при вызове объекта тестирования.
         exclude_for_set = ["attr4"]
     
-    # Необязательный метод. Создан для удобства - добавляет подсказки при наборе self.get_obj() и "смотрит" за именами методов
-    @wraps(obj.__class__.__init__)
+    # Необязательный метод. Создан для удобства - добавляет подсказки при наборе self.get_obj() и "смотрит" за именами методов.
+    @wraps(obj.__class__.__init__) # замена аннотации kwargs, не обязательный декоратор, можно и просто написать аннотацию.
     def get_obj(self, **kwargs) -> obj:
         return super().get_obj(**kwargs)
     
-    # общие методы тестирования класса, когда от наличия аргументов или их значения результат не поменяется
+    # общие методы тестирования класса, когда от наличия аргументов или их значения результат не поменяется.
     def test_init_obj(self):
-        obj = self.get_obj()
+        # Вызов объекта тестирования с аргументами. В данном случае аргументами будут атрибуты класса
+        # за исключением attr4, который указан в "exclude_for_set = ["attr4"]".
+        obj = self.get_obj() 
         assert isinstance(obj.__class__, self.obj.__class__)
         assert obj.attr1 == "some_attr1"
         assert obj.attr2 == "some_attr2"
         assert obj.attr3 is True
         assert obj.create_obj == 'some_attr1 some_attr2'
         assert obj.attr5 == 'some_attr1 some_attr2'
+        # аргументы можно менять и продолжать тестирование...
         obj = self.get_obj(attr1="new_attr1")
         assert obj.create_obj == 'new_attr1 some_attr2'
         assert obj.attr5 == 'new_attr1 some_attr2'
         
         
 class TestSomeClass(BaseClassTest):
+    """
+    Тестирование частных методов классов.
+    """
     obj = SomeClass
 
     def test_create_readonly_param(self):
@@ -127,7 +142,7 @@ pytest your_module/your_test.py
 ```
 будет выдано предупреждение(если все остальные тесты пройдут успешно):
 ```python
-================================================== warnings summary ==================================================
+================================================================= warnings summary =================================================================
 your_module/your_test.py::TestSomeClass2::test_create_readonly_param
   DeprecationWarning: 
   Checking class 'SomeClass2'. Testing generated a warning:
@@ -142,6 +157,6 @@ your_module/your_test.py::TestSomeClass2::test_create_readonly_param
 
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-===================================== some passed, 2 warnings in 0.05s =====================================
+========================================================== some passed, 2 warnings in 0.05s ==========================================================
 
 ```

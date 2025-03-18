@@ -39,7 +39,7 @@ class MetaBase(type):
 
 class BaseSettings(metaclass=MetaBase):
     """
-    Базовый класс настроек для наследования основного класса.
+    Базовый класс настроек для наследования.
     """
     obj = None
 
