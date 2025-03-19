@@ -1,13 +1,12 @@
 import inspect
 import warnings
-from typing import Iterator
-
 import pytest
+
+from typing import Iterator, Callable, Any
 
 
 def custom_warning_format(message, category, filename, lineno, line=None):
     return f"{category.__name__}: {message}\n"
-
 
 warnings.formatwarning = custom_warning_format
 
@@ -39,25 +38,34 @@ class MetaBase(type):
 
 class BaseSettings(metaclass=MetaBase):
     """
-    Базовый класс настроек для наследования.
+    Базовый класс для наследования тестовым классом.
     """
-    obj = None
+    obj: Callable[..., Any] = None  # Объект тестирования.
+    args: list = None  # Список с позиционными аргументами для вызова объекта.
 
     class Meta:
-        exclude_for_set = ["obj", "get_obj", "_method_implementation", "_presence_all_methods"]
+        # Список атрибутов для исключения из вызова объекта, args исключен т.к. это список с позиционными аргументами.
+        exclude_for_set = ["obj", "args", "get_obj", "_method_implementation", "_presence_all_methods"]
 
-    def get_obj(self, **kwargs):
-        attrs = dict(inspect.getmembers(self.__class__, lambda x: not inspect.isroutine(x)))
-        attrs = {
-            k: v for k, v in attrs.items()
-            if not k.startswith('_')  # Исключаем приватные атрибуты
-               and not k.startswith('__')  # Исключаем классовые атрибуты
-               and k != 'Meta'  # Исключаем класс 'Meta'
-               and k not in self.Meta.exclude_for_set  # Исключаем атрибуты из списка exclude_for_set
+    def get_obj(self, *args, **kwargs):
+        # Получаем позоционные аргументы для вызова.
+        attrs_args = list(args) if args else self.args if self.args else []
+        # Собираем из атрибутов словарь с kwargs.
+        attrs_kwargs = dict(inspect.getmembers(self.__class__, lambda x: not inspect.isroutine(x)))
+        # Исключаем ненужное.
+        attrs_kwargs = {
+            k: v for k, v in attrs_kwargs.items()
+            if not k.startswith('_')  # Исключаем приватные атрибуты.
+               and not k.startswith('__')
+               and k != 'Meta'  # Исключаем класс 'Meta'.
+               and k not in self.Meta.exclude_for_set  # Исключаем атрибуты из списка exclude_for_set.
         }
+        # Обновляем kwargs если требуется.
         if kwargs:
-            attrs.update(kwargs)
-        test_object = self.obj(**attrs)
+            attrs_kwargs.update(kwargs)
+        # Вызываем объект с полученными аргументами.
+        test_object = self.obj(*attrs_args, **attrs_kwargs)
+        # Возвращаем объект.
         return test_object
 
     @pytest.fixture(scope="class", autouse=True)

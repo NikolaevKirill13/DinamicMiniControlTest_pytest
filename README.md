@@ -11,11 +11,14 @@
 ```python
 class SomeBaseClass:
     type: str = None
+    attr: str = None
     attr1: str = None
     attr2: str = None
     attr3: bool = False
     
-    def __init__(self, attr1: str = None, attr2: str = None, attr3: bool = False):
+    def __init__(self, *args: str, attr1: str = None, attr2: str = None, attr3: bool = False):
+        if args:
+            self.attr = args[0]
         self.attr1 = attr1
         self.attr2 = attr2
         self.attr3 = attr3
@@ -70,12 +73,17 @@ class BaseClassTest(BaseSettings):
     """
     Базовый класс настроек для наследования основного класса.
     """
+    # Класс для тестирования.
     obj: Type[SomeBaseClass] = None
-    # базовые атрибуты для вызова класса
+    # Базовые атрибуты для вызова класса.
+    # Атрибут args создается списком для передачи содержимого как позиционные аргументы при вызове объекта тестирования,
+    # можно указывать как в родительском, так и в дочернем классе. Args дочернего класса заменяет собой родительский.
+    args = ["attr_args1", "attr_args2"]   
+    # Атрибуты применяются как kwargs при вызове объекта тестирования. Так же имеют приоритет в указанные дочернем классе.
     attr1: str = "some_attr1"
     attr2: str = "some_attr2"
     attr3: bool = True
-    # дополнительный атрибут(если требуется, но в вызове класса не используется), в вызове будет проигнорирован
+    # дополнительный атрибут(если требуется для тестирования, но в вызове класса не используется), в вызове будет проигнорирован
     attr4: bool = False
 
     class Meta:
@@ -83,23 +91,27 @@ class BaseClassTest(BaseSettings):
         exclude_for_set = ["attr4"]
     
     # Необязательный метод. Создан для удобства - добавляет подсказки при наборе self.get_obj() и "смотрит" за именами методов.
-    @wraps(obj.__class__.__init__) # замена аннотации kwargs, не обязательный декоратор, можно и просто написать аннотацию.
-    def get_obj(self, **kwargs) -> obj:
-        return super().get_obj(**kwargs)
+    @wraps(obj.__class__.__init__) # Замена аннотации args kwargs, не обязательный декоратор, можно и просто написать аннотацию.
+    def get_obj(self, *args, **kwargs) -> obj:
+        return super().get_obj(*args, **kwargs)
     
-    # общие методы тестирования класса, когда от наличия аргументов или их значения результат не поменяется.
+    # Общие методы тестирования класса, когда от наличия аргументов или их значения результат не поменяется.
     def test_init_obj(self): 
         # Вызов объекта тестирования с аргументами. В данном случае аргументами будут атрибуты класса
         # за исключением attr4, который указан в "exclude_for_set = ["attr4"]".
-        obj = self.get_obj() 
+        obj = self.get_obj()  
         assert isinstance(obj.__class__, self.obj.__class__)
+        assert obj.attr == "attr_args1"
         assert obj.attr1 == "some_attr1"
         assert obj.attr2 == "some_attr2"
         assert obj.attr3 is True
         assert obj.create_obj == 'some_attr1 some_attr2'
         assert obj.attr5 == 'some_attr1 some_attr2'
-        # аргументы можно менять и продолжать тестирование...
-        obj = self.get_obj(attr1="new_attr1")
+        # Аргументы можно менять и продолжать тестирование. 
+        # Не очевидный момент - позиционный аргумент указанный в вызове полностью заменят атрибут класса args,
+        # тогда как именованный дополняет или заменяет только самого себя!
+        obj = self.get_obj("attr_args_new", attr1="new_attr1")
+        assert obj.attr == 'attr_args_new'
         assert obj.create_obj == 'new_attr1 some_attr2'
         assert obj.attr5 == 'new_attr1 some_attr2'
         
@@ -127,12 +139,15 @@ class TestSomeClass(BaseClassTest):
 
 class TestSomeClass2(BaseClassTest):
     obj = SomeClass2
+    args = ["args some_class2",]
 
     def test_create_readonly_param(self):
         # в разных классах результат может различаться в зависимости от аргумента в вызове объекта
         obj = self.get_obj()
+        assert obj.attr == "args some_class2"
         assert obj.create_readonly_param() == ' readonly'
-        obj = self.get_obj(attr3=False)
+        obj = self.get_obj("new_args some_class2", attr3=False)
+        assert obj.attr == "new_args some_class2"
         assert obj.create_readonly_param() == ''
 
     def test_implementation_control(self):
