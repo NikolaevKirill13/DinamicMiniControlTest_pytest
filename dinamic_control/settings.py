@@ -113,9 +113,8 @@ class BaseSettings(metaclass=MetaBase):
                 message_warning = (f"\nMethod <{method_name}> does not contain 'assert' in class '{self.__class__.__name__}'\n"
                                    f"  Class defined at {class_file}:{class_line}")
                 warnings.warn(message_warning, category=DeprecationWarning)
-                # assert False, message_warning
-            else:
-                method()
+            #else:
+            #    method()
         yield
 
 __all__ = ("BaseSettings",)
